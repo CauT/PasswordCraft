@@ -6,7 +6,7 @@ The interface defaults to English. Use **Language / 语言 → English / 简体�
 
 独立、离线的原生 Mac 密码管理应用，面向喜欢 1Password 6 本地密码库方式的用户。无需账号或订阅。不隶属于 1Password，不包含其代码或品牌资源。浏览器自动填充按用户要求不纳入范围。
 
-打开 `PasswordCraft.app`。压缩包为 [GitHub Releases](https://github.com/CauT/PasswordCraft/releases)，面向 Apple silicon，最低系统声明 macOS 13，实际验收环境为 macOS 26.2。签名为本机 ad-hoc，没有 Developer ID 或 Apple 公证；本机启动和包完整性检查不等于下载后 Gatekeeper 验收。交付身份、已验证旅程及限制见 [发布与兼容性说明](docs/release.md)。
+打开 `PasswordCraft.app`。压缩包为 [GitHub Releases](https://github.com/CauT/PasswordCraft/releases)，面向 Apple silicon，最低系统声明 macOS 13，实际验收环境为 macOS 26.2。0.4.1 使用 Developer ID 签名并通过 Apple 公证，压缩包内附公证票据；已验证新解包副本的签名、票据和 Gatekeeper 评估。交付身份、已验证旅程及限制见 [发布与兼容性说明](docs/release.md)。
 
 ## 开始使用
 
@@ -80,7 +80,7 @@ export CLANG_MODULE_CACHE_PATH="$PWD/.build/clang-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$PWD/.build/swift-cache"
 swift run --disable-sandbox -c release VaultCoreChecks
 ./scripts/package.sh /absolute/path/to/a-new-package-directory
-/usr/bin/python3 scripts/verify-package.py /path/to/PasswordCraft-0.4.0-mac-arm64.zip /path/to/PasswordCraft.app
+/usr/bin/python3 scripts/verify-package.py /path/to/PasswordCraft-0.4.1-mac-arm64.zip /path/to/PasswordCraft.app
 ```
 
 打包始终使用新目录并拒绝覆盖旧目录；产生构建输入摘要、提交身份与包验证回执。可给验证脚本传 `--extract-to /new/directory`，保留新解包结果用于正常 UI 启动。默认核心检查不下载外部参考库；公开样本可按各检查点记录提供给测试，未提供时明确标为未执行。
