@@ -41,7 +41,7 @@ struct AgileAttachmentInventory {
         return (attachments, metadata)
     }
     func requireComplete() throws {
-        guard consumed == Set(files.keys) else { throw VaultError.message("AgileKeychain 包含未关联的附件、缺失定义或未知附件文件；整批未导入。") }
+        guard consumed == Set(files.keys) else { throw VaultError.message(L("AgileKeychain 包含未关联的附件、缺失定义或未知附件文件；整批未导入。")) }
     }
-    private func invalid() -> VaultError { .message("AgileKeychain 附件定义、密钥、长度或 CRC32 损坏检查失败；整批未导入。") }
+    private func invalid() -> VaultError { .message(L("AgileKeychain 附件定义、密钥、长度或 CRC32 损坏检查失败；整批未导入。")) }
 }

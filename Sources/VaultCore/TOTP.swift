@@ -10,35 +10,35 @@ public struct TOTPConfiguration {
     public let period: Int
 
     public init(_ input: String) throws {
-        guard input.utf8.count <= 8192 else { throw Self.invalid("验证码设置过长。") }
+        guard input.utf8.count <= 8192 else { throw Self.invalid(L("验证码设置过长。")) }
         let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
         var encoded = value
         var algorithm = Algorithm.sha1; var digits = 6; var period = 30
         if value.lowercased().hasPrefix("otpauth:") {
             guard let url = URLComponents(string: value), url.scheme?.lowercased() == "otpauth", url.host?.lowercased() == "totp",
                   url.user == nil, url.password == nil, url.port == nil, url.fragment == nil, url.path.count > 1 else {
-                throw Self.invalid("需要 otpauth://totp/ 链接；不支持计数器 HOTP。")
+                throw Self.invalid(L("需要 otpauth://totp/ 链接；不支持计数器 HOTP。"))
             }
             var parameters: [String: String] = [:]
             for query in url.queryItems ?? [] {
                 let key = query.name.lowercased()
                 guard ["secret", "issuer", "algorithm", "digits", "period"].contains(key), parameters[key] == nil, let content = query.value else {
-                    throw Self.invalid("验证码链接包含未知、重复或缺少值的参数。")
+                    throw Self.invalid(L("验证码链接包含未知、重复或缺少值的参数。"))
                 }
                 parameters[key] = content
             }
-            guard let key = parameters["secret"], !key.isEmpty else { throw Self.invalid("验证码链接缺少 secret。") }
+            guard let key = parameters["secret"], !key.isEmpty else { throw Self.invalid(L("验证码链接缺少 secret。")) }
             encoded = key
             if let name = parameters["algorithm"] {
-                guard let parsed = Algorithm(rawValue: name.uppercased()) else { throw Self.invalid("仅支持 SHA1、SHA256 和 SHA512。") }
+                guard let parsed = Algorithm(rawValue: name.uppercased()) else { throw Self.invalid(L("仅支持 SHA1、SHA256 和 SHA512。")) }
                 algorithm = parsed
             }
             if let count = parameters["digits"] {
-                guard let parsed = Int(count), (6...8).contains(parsed) else { throw Self.invalid("验证码位数需要是 6、7 或 8。") }
+                guard let parsed = Int(count), (6...8).contains(parsed) else { throw Self.invalid(L("验证码位数需要是 6、7 或 8。")) }
                 digits = parsed
             }
             if let interval = parameters["period"] {
-                guard let parsed = Int(interval), parsed > 0, parsed <= Int(Int32.max) else { throw Self.invalid("验证码周期必须是正的 32 位秒数。") }
+                guard let parsed = Int(interval), parsed > 0, parsed <= Int(Int32.max) else { throw Self.invalid(L("验证码周期必须是正的 32 位秒数。")) }
                 period = parsed
             }
         }
@@ -55,7 +55,7 @@ public struct TOTPConfiguration {
         let seconds = date.timeIntervalSince1970
         // Double(UInt64.max) rounds up; the strict bound avoids integer conversion traps.
         let tick = floor(seconds / Double(period))
-        guard seconds.isFinite, seconds >= 0, tick < Double(UInt64.max) else { throw Self.invalid("系统时间不适用于验证码生成。") }
+        guard seconds.isFinite, seconds >= 0, tick < Double(UInt64.max) else { throw Self.invalid(L("系统时间不适用于验证码生成。")) }
         var counter = UInt64(tick).bigEndian
         let message = withUnsafeBytes(of: &counter) { Data($0) }
         let key = SymmetricKey(data: secret)
@@ -82,7 +82,7 @@ public struct TOTPConfiguration {
               symbols.dropFirst(padStart).allSatisfy({ $0 == 61 }),
               [0, 2, 4, 5, 7].contains(data.count % 8),
               padding == 0 || (symbols.count % 8 == 0 && padding == (8 - data.count % 8) % 8) else {
-            throw invalid("密钥不是有效的 Base32 编码。")
+            throw invalid(L("密钥不是有效的 Base32 编码。"))
         }
         var bits: UInt32 = 0; var count = 0; var result = Data()
         for symbol in data {
@@ -90,13 +90,13 @@ public struct TOTPConfiguration {
             switch symbol {
             case 65...90: value = UInt32(symbol - 65)
             case 50...55: value = UInt32(symbol - 50 + 26)
-            default: throw invalid("Base32 密钥只能包含 A–Z、2–7 和末尾填充符。")
+            default: throw invalid(L("Base32 密钥只能包含 A–Z、2–7 和末尾填充符。"))
             }
             bits = (bits << 5) | value; count += 5
             if count >= 8 { count -= 8; result.append(UInt8((bits >> count) & 255)) }
             bits &= (1 << count) - 1
         }
-        guard bits == 0, !result.isEmpty else { throw invalid("Base32 密钥含有无效的末尾位。") }
+        guard bits == 0, !result.isEmpty else { throw invalid(L("Base32 密钥含有无效的末尾位。")) }
         return result
     }
     private static func invalid(_ message: String) -> VaultError { .message(message) }

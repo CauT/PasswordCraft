@@ -50,11 +50,11 @@ public enum VaultMoveResult {
     public var message: String {
         switch self {
         case .copied(let count, let warning):
-            return "已复制 \(count) 个项目及历史、附件。重复执行不会增加相同副本。" + suffix(warning)
+            return L("已复制 \(count) 个项目及历史、附件。重复执行不会增加相同副本。") + suffix(warning)
         case .moved(let count, let warning):
-            return "已移动 \(count) 个项目及历史、附件。源库副本保留在回收站和已有备份中。" + suffix(warning)
+            return L("已移动 \(count) 个项目及历史、附件。源库副本保留在回收站和已有备份中。") + suffix(warning)
         case .sourceRetained(let count, let reason):
-            return "目标库已保存 \(count) 个项目，但源库移入回收站未完成。源项目保留；请核对两库后重试。\(reason)"
+            return L("目标库已保存 \(count) 个项目，但源库移入回收站未完成。源项目保留；请核对两库后重试。\(reason)")
         }
     }
     private func suffix(_ warning: String?) -> String {

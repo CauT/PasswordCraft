@@ -25,18 +25,18 @@ public enum AttachmentStore {
     public static func validate(items: [VaultItem], revisions: [VaultRevision], blobs: [String: Data]) throws {
         var used: Set<String> = []
         for item in items + revisions.map(\.snapshot) {
-            guard Set(item.attachments.map(\.id)).count == item.attachments.count else { throw VaultError.message("同一项目含重复附件标识。") }
+            guard Set(item.attachments.map(\.id)).count == item.attachments.count else { throw VaultError.message(L("同一项目含重复附件标识。")) }
             for attachment in item.attachments {
                 guard validName(attachment.name),
                       !attachment.mediaType.isEmpty, attachment.mediaType.utf8.count <= 256,
                       let bytes = blobs[attachment.blobID], bytes.count == attachment.byteCount,
-                      bytes.count <= maximumAttachmentBytes else { throw VaultError.message("附件名称、类型、大小或内容引用无效，未保存。") }
+                      bytes.count <= maximumAttachmentBytes else { throw VaultError.message(L("附件名称、类型、大小或内容引用无效，未保存。")) }
                 used.insert(attachment.blobID)
             }
         }
-        guard used == Set(blobs.keys) else { throw VaultError.message("附件内容与项目或历史引用不一致。") }
+        guard used == Set(blobs.keys) else { throw VaultError.message(L("附件内容与项目或历史引用不一致。")) }
         for (id, bytes) in blobs {
-            guard id == identity(bytes) else { throw VaultError.message("附件内容校验失败。") }
+            guard id == identity(bytes) else { throw VaultError.message(L("附件内容校验失败。")) }
         }
     }
     public static func referenced(items: [VaultItem], revisions: [VaultRevision], in blobs: [String: Data]) -> [String: Data] {
@@ -47,7 +47,7 @@ public enum AttachmentStore {
         var result = existing
         for (id, bytes) in added {
             guard bytes.count <= maximumAttachmentBytes, identity(bytes) == id,
-                  result[id] == nil || result[id] == bytes else { throw VaultError.message("附件内容标识冲突或校验失败。") }
+                  result[id] == nil || result[id] == bytes else { throw VaultError.message(L("附件内容标识冲突或校验失败。")) }
             result[id] = bytes
         }
         return result

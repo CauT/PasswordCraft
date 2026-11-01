@@ -12,6 +12,12 @@ Backups remain in `~/Library/Application Support/LocalVault/Backups/` so existin
 
 The new bundle uses its own preferences and biometric Keychain service. Open existing vaults explicitly on first launch; recent-file lists are not copied automatically. Existing master passwords still work. Touch ID must be enabled again on compatible hardware; no existing Keychain records are silently moved or deleted. Positive Touch ID authentication has not been hardware-tested.
 
+## Interface language
+
+English is the default, independently of the macOS language. English and Simplified Chinese can be selected from the main window or Language menu, including while editing. The preference is local to the app and persists across launches. Changing language does not reset open drafts or change vault bytes.
+
+Built-in category identifiers remain stable; their display labels are localized. Existing and imported item titles, tags, notes, field labels, and source snapshots are user data and remain unchanged. Newly added template fields use the selected language; adding the same template after switching languages recognizes existing standard labels instead of duplicating them. System-owned messages may follow the macOS language.
+
 ## Import coverage
 
 Imports are read-only against the source and previewed before saving into the selected encrypted destination. Preserve your source and compare counts, fields and attachments. No user's real vault is bundled or used in tests.

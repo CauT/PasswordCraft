@@ -6,11 +6,11 @@ public enum PasswordHealth {
         case short, common, repeating, sequence, reused
         public var explanation: String {
             switch self {
-            case .short: return "少于 12 个字符"
-            case .common: return "包含常见易猜密码模式"
-            case .repeating: return "由短模式重复组成"
-            case .sequence: return "包含连续数字、字母或键盘顺序"
-            case .reused: return "与其他项目使用相同密码"
+            case .short: return L("少于 12 个字符")
+            case .common: return L("包含常见易猜密码模式")
+            case .repeating: return L("由短模式重复组成")
+            case .sequence: return L("包含连续数字、字母或键盘顺序")
+            case .reused: return L("与其他项目使用相同密码")
             }
         }
     }

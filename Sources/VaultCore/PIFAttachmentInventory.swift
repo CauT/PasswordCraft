@@ -26,7 +26,7 @@ struct PIFAttachmentInventory {
         return attachments
     }
     func requireComplete() throws {
-        guard consumed == Set(files.keys) else { throw VaultError.message("1PIF 导出包有未关联附件、未知预览或额外文件，整批未导入。请保留完整原始导出。") }
+        guard consumed == Set(files.keys) else { throw VaultError.message(L("1PIF 导出包有未关联附件、未知预览或额外文件，整批未导入。请保留完整原始导出。")) }
     }
-    private func invalid() -> VaultError { .message("1PIF 附件名称无效或超过 16 MiB，整批未导入。") }
+    private func invalid() -> VaultError { .message(L("1PIF 附件名称无效或超过 16 MiB，整批未导入。")) }
 }

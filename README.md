@@ -2,6 +2,8 @@
 
 A native, offline Mac password manager. No account or subscription.
 
+The interface defaults to English. Use **Language / 语言 → English / 简体中文** in the menu bar or the language selector at the top of the window. The choice persists across launches. Switching language keeps open drafts and does not translate or rewrite stored passwords, notes, or imported source data.
+
 独立、离线的原生 Mac 密码管理应用，面向喜欢 1Password 6 本地密码库方式的用户。无需账号或订阅。不隶属于 1Password，不包含其代码或品牌资源。浏览器自动填充按用户要求不纳入范围。
 
 打开 `PasswordCraft.app`。压缩包为 [GitHub Releases](https://github.com/CauT/PasswordCraft/releases)，面向 Apple silicon，最低系统声明 macOS 13，实际验收环境为 macOS 26.2。签名为本机 ad-hoc，没有 Developer ID 或 Apple 公证；本机启动和包完整性检查不等于下载后 Gatekeeper 验收。交付身份、已验证旅程及限制见 [发布与兼容性说明](docs/release.md)。

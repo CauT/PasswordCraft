@@ -56,7 +56,7 @@ enum SafeZIP {
             if name != "export.data" && name != "export.attributes" {
                 let parts = name.split(separator: "/", omittingEmptySubsequences: false)
                 guard (name == "files/" && unpacked == 0) || (parts.count == 2 && parts[0] == "files" && !parts[1].isEmpty && unpacked <= AttachmentStore.maximumAttachmentBytes) else {
-                    throw VaultError.message("1PUX 包含不支持的额外路径或超限附件，整批未导入。")
+                    throw VaultError.message(L("1PUX 包含不支持的额外路径或超限附件，整批未导入。"))
                 }
             }
             members.append(Member(name: name, offset: start, packed: packed, unpacked: unpacked, method: method, flags: flags, checksum: UInt32(try dword(cursor+16))))
@@ -95,5 +95,5 @@ enum SafeZIP {
         }
         return result
     }
-    private static func invalid() -> VaultError { .message("1PUX ZIP 无效、损坏或超出安全读取范围。仅支持非加密 ZIP32 的 stored/deflate 格式。") }
+    private static func invalid() -> VaultError { .message(L("1PUX ZIP 无效、损坏或超出安全读取范围。仅支持非加密 ZIP32 的 stored/deflate 格式。")) }
 }

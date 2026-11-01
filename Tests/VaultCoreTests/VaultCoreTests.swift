@@ -141,6 +141,14 @@ func XCTUnwrap<T>(_ value: T?) throws -> T {
     static func main() async throws {
         setbuf(stdout, nil)
         if CommandLine.arguments.count == 4, CommandLine.arguments[1] == "--contention-child" { try runContentionChild(CommandLine.arguments); return }
+        try runLocalizationChecks()
+        // Existing import-warning checks intentionally exercise the Chinese UI.
+        // Use a volatile process-only preference; never change app preferences.
+        let previousLanguage = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)
+        var testLanguage = previousLanguage
+        testLanguage[AppLanguage.preferenceKey] = AppLanguage.simplifiedChinese.rawValue
+        UserDefaults.standard.setVolatileDomain(testLanguage, forName: UserDefaults.argumentDomain)
+        defer { UserDefaults.standard.setVolatileDomain(previousLanguage, forName: UserDefaults.argumentDomain) }
         let suite = VaultCoreTests()
         let cases: [(String, () throws -> Void)] = [
             ("encrypted persistence, permissions, lock and backup", suite.testPersistenceEncryptionLockAndBackup),

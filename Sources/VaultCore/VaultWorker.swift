@@ -31,14 +31,14 @@ public actor VaultWorker {
 
     private func beginOpen(_ url: URL, generation: UInt64) throws {
         try advance(generation)
-        guard sessions[canonical(url)] == nil else { throw VaultError.message("密码库已解锁，请从库列表切换。") }
+        guard sessions[canonical(url)] == nil else { throw VaultError.message(L("密码库已解锁，请从库列表切换。")) }
         // Bound the number of resident decrypted vaults (each serialized vault is at most 32 MiB).
-        guard sessions.count < Self.maximumUnlockedVaults else { throw VaultError.message("最多同时解锁 8 个库，请先锁定一个库。") }
+        guard sessions.count < Self.maximumUnlockedVaults else { throw VaultError.message(L("最多同时解锁 8 个库，请先锁定一个库。")) }
     }
     private func retain(_ opened: VaultSession, masterPassword: Bool, generation: UInt64) throws -> [VaultItem] {
         guard !sessions.values.contains(where: { $0.session.vaultID == opened.vaultID }) else {
             opened.lock()
-            throw VaultError.message("此文件与已解锁库具有相同库标识（副本或另一个文件入口）。请先锁定原库。")
+            throw VaultError.message(L("此文件与已解锁库具有相同库标识（副本或另一个文件入口）。请先锁定原库。"))
         }
         sessions[opened.fileURL] = Entry(session: opened, openedGeneration: generation, masterPassword: masterPassword)
         activeURL = opened.fileURL; sessionGeneration = generation
@@ -76,7 +76,7 @@ public actor VaultWorker {
     }
     public func previewLegacyVault(_ url: URL, password: String, generation: UInt64) throws -> VaultImportPreview {
         _ = try matchingSession(generation)
-        guard let format = LegacyVaultFormat(url: url) else { throw VaultError.message("请选择 OPVault 或 AgileKeychain 目录。") }
+        guard let format = LegacyVaultFormat(url: url) else { throw VaultError.message(L("请选择 OPVault 或 AgileKeychain 目录。")) }
         return try format.read(from: url, password: password)
     }
 
@@ -95,7 +95,7 @@ public actor VaultWorker {
         do {
             return VaultSnapshot(items: current.items, revisions: current.allRevisions, blobs: current.transferDocument.blobs, backups: try current.availableBackups(), backupDirectory: current.backupDirectory, warning: current.lastWarning)
         } catch {
-            let listingWarning = "无法读取自动备份列表；修复备份目录后才能继续保存。\(error.localizedDescription)"
+            let listingWarning = L("无法读取自动备份列表；修复备份目录后才能继续保存。\(error.localizedDescription)")
             let warning = current.lastWarning.map { $0 + "\n" + listingWarning } ?? listingWarning
             return VaultSnapshot(items: current.items, revisions: current.allRevisions, blobs: current.transferDocument.blobs, backups: [], backupDirectory: current.backupDirectory, warning: warning)
         }
@@ -174,18 +174,18 @@ public actor VaultWorker {
     public func transfer(itemIDs: Set<UUID>, to destination: URL, move: Bool, generation: UInt64) throws -> VaultMoveResult {
         let source = try matchingSession(generation)
         guard let target = sessions[canonical(destination)]?.session, target !== source else {
-            throw VaultError.message("请选择另一个已解锁的密码库。")
+            throw VaultError.message(L("请选择另一个已解锁的密码库。"))
         }
         try source.verifyUnchanged(); try target.verifyUnchanged()
         let selected = source.items.filter { itemIDs.contains($0.id) }
         guard !selected.isEmpty, selected.count == itemIDs.count, selected.allSatisfy({ $0.state != .trashed }) else {
-            throw VaultError.message("请选择仍在源库中的非回收站项目。")
+            throw VaultError.message(L("请选择仍在源库中的非回收站项目。"))
         }
         var merged = target.items
         let existing = Dictionary(uniqueKeysWithValues: target.items.map { ($0.id, $0) })
         for item in selected {
             if let previous = existing[item.id] {
-                guard previous == item else { throw VaultError.message("目标库存在同一标识但内容不同的项目，未覆盖任何内容。请先核对两库项目。") }
+                guard previous == item else { throw VaultError.message(L("目标库存在同一标识但内容不同的项目，未覆盖任何内容。请先核对两库项目。")) }
             } else { merged.append(item) }
         }
         let history = source.allRevisions.filter { itemIDs.contains($0.itemID) }
@@ -203,6 +203,6 @@ public actor VaultWorker {
     }
 
     private func expiredOperation() -> VaultError {
-        .message("密码库已锁定或切换，此操作已取消。")
+        .message(L("密码库已锁定或切换，此操作已取消。"))
     }
 }

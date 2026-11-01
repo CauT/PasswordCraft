@@ -29,6 +29,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <key>CFBundleIdentifier</key><string>io.github.CauT.PasswordCraft</string>
 <key>CFBundleName</key><string>PasswordCraft</string>
 <key>CFBundleDisplayName</key><string>PasswordCraft</string>
+<key>CFBundleDevelopmentRegion</key><string>en</string>
 <key>CFBundleExecutable</key><string>PasswordCraft</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>$VERSION</string>

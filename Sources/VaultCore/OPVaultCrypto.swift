@@ -14,7 +14,7 @@ struct OPVaultKeys {
 
 enum OPVaultCrypto {
     static func derive(password: String, salt: Data, iterations: Int) throws -> OPVaultKeys {
-        guard salt.count == 16, (1...10_000_000).contains(iterations) else { throw VaultError.message("OPVault 的盐或 PBKDF2 参数无效或超过读取范围。") }
+        guard salt.count == 16, (1...10_000_000).contains(iterations) else { throw VaultError.message(L("OPVault 的盐或 PBKDF2 参数无效或超过读取范围。")) }
         var result = [UInt8](repeating: 0, count: 64)
         let status = password.withCString { pointer in
             salt.withUnsafeBytes { bytes in
@@ -46,7 +46,7 @@ enum OPVaultCrypto {
     }
     static func verify(_ mac: Data, message: Data, keys: OPVaultKeys) throws {
         guard mac.count == 32, HMAC<SHA256>.isValidAuthenticationCode(mac, authenticating: message, using: SymmetricKey(data: keys.authentication)) else {
-            throw VaultError.message("OPVault 密码不正确，或数据的完整性校验失败；整批未导入。")
+            throw VaultError.message(L("OPVault 密码不正确，或数据的完整性校验失败；整批未导入。"))
         }
     }
     private static func authenticate(_ data: Data, keys: OPVaultKeys) throws {
@@ -71,5 +71,5 @@ enum OPVaultCrypto {
         guard let string = value as? String, let bytes = Data(base64Encoded: string), bytes.base64EncodedString() == string else { throw invalid() }
         return bytes
     }
-    static func invalid() -> VaultError { .message("OPVault 加密结构无效或超出读取范围；整批未导入。") }
+    static func invalid() -> VaultError { .message(L("OPVault 加密结构无效或超出读取范围；整批未导入。")) }
 }

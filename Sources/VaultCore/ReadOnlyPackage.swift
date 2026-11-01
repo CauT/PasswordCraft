@@ -106,5 +106,5 @@ final class ReadOnlyPackage {
         a.st_mtimespec.tv_sec == b.st_mtimespec.tv_sec && a.st_mtimespec.tv_nsec == b.st_mtimespec.tv_nsec &&
         a.st_ctimespec.tv_sec == b.st_ctimespec.tv_sec && a.st_ctimespec.tv_nsec == b.st_ctimespec.tv_nsec
     }
-    private static func invalid() -> VaultError { .message("密码库目录无效、含链接/特殊文件、读取期间发生变化或超出读取范围；整批未导入。") }
+    private static func invalid() -> VaultError { .message(L("密码库目录无效、含链接/特殊文件、读取期间发生变化或超出读取范围；整批未导入。")) }
 }

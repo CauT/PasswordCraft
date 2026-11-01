@@ -21,16 +21,16 @@ public struct VaultTransferDocument: Codable, Equatable {
         blobs = try c.decodeIfPresent([String: Data].self, forKey: .blobs) ?? [:]
     }
     public func validate() throws {
-        guard format == "LocalVault-Transfer", [1, 2].contains(version) else { throw VaultError.message("不支持的明文导出版本。") }
-        guard version == 2 || (blobs.isEmpty && (items + revisions.map(\.snapshot)).allSatisfy({ $0.attachments.isEmpty })) else { throw VaultError.message("旧版导出格式不能包含附件。") }
-        guard Set(items.map(\.id)).count == items.count else { throw VaultError.message("导入文件含重复项目 ID，整批未导入。") }
+        guard format == "LocalVault-Transfer", [1, 2].contains(version) else { throw VaultError.message(L("不支持的明文导出版本。")) }
+        guard version == 2 || (blobs.isEmpty && (items + revisions.map(\.snapshot)).allSatisfy({ $0.attachments.isEmpty })) else { throw VaultError.message(L("旧版导出格式不能包含附件。")) }
+        guard Set(items.map(\.id)).count == items.count else { throw VaultError.message(L("导入文件含重复项目 ID，整批未导入。")) }
         let ids = Set(items.map(\.id))
-        guard Set(revisions.map(\.id)).count == revisions.count, revisions.allSatisfy({ ids.contains($0.snapshot.id) }) else { throw VaultError.message("导入历史标识重复或缺少对应项目。") }
+        guard Set(revisions.map(\.id)).count == revisions.count, revisions.allSatisfy({ ids.contains($0.snapshot.id) }) else { throw VaultError.message(L("导入历史标识重复或缺少对应项目。")) }
         for item in items + revisions.map(\.snapshot) {
-            guard item.state == .trashed || item.deletedAt == nil else { throw VaultError.message("未删除项目不能带有删除时间。") }
-            guard Set(item.sections.map(\.id)).count == item.sections.count else { throw VaultError.message("字段分组 ID 重复。") }
+            guard item.state == .trashed || item.deletedAt == nil else { throw VaultError.message(L("未删除项目不能带有删除时间。")) }
+            guard Set(item.sections.map(\.id)).count == item.sections.count else { throw VaultError.message(L("字段分组 ID 重复。")) }
             let fields = item.sections.flatMap(\.fields)
-            guard Set(fields.map(\.id)).count == fields.count else { throw VaultError.message("自定义字段 ID 重复。") }
+            guard Set(fields.map(\.id)).count == fields.count else { throw VaultError.message(L("自定义字段 ID 重复。")) }
         }
         try AttachmentStore.validate(items: items, revisions: revisions, blobs: blobs)
     }
@@ -64,14 +64,14 @@ public enum VaultExportFormat: String, CaseIterable, Identifiable {
     case nativeJSON, onePIF, csv
     public var id: String { rawValue }
     public var title: String {
-        switch self { case .nativeJSON: return "完整 JSON（含历史）"; case .onePIF: return "1Password 1PIF"; case .csv: return "CSV（含完整 JSON 列）" }
+        switch self { case .nativeJSON: return L("完整 JSON（含历史）"); case .onePIF: return "1Password 1PIF"; case .csv: return L("CSV（含完整 JSON 列）") }
     }
     public var fileExtension: String { switch self { case .nativeJSON: return "json"; case .onePIF: return "1pif"; case .csv: return "csv" } }
     public var warning: String {
         switch self {
-        case .nativeJSON: return "完整保留当前项目、回收站及历史记录。文件是明文，任何能读取它的人都能看到密码。"
-        case .onePIF: return "导出当前字段、标签、状态和密码历史；其他软件可能忽略扩展字段，不保留完整条目历史。文件是明文。"
-        case .csv: return "常规列方便其他软件读取；完整字段和历史放在 localvault_json 列中，其他软件可能忽略此列。文件是明文；电子表格软件可能把以 =、+、-、@ 开头的内容当作公式，请仅作为文本导入。"
+        case .nativeJSON: return L("完整保留当前项目、回收站及历史记录。文件是明文，任何能读取它的人都能看到密码。")
+        case .onePIF: return L("导出当前字段、标签、状态和密码历史；其他软件可能忽略扩展字段，不保留完整条目历史。文件是明文。")
+        case .csv: return L("常规列方便其他软件读取；完整字段和历史放在 localvault_json 列中，其他软件可能忽略此列。文件是明文；电子表格软件可能把以 =、+、-、@ 开头的内容当作公式，请仅作为文本导入。")
         }
     }
 }
@@ -79,25 +79,25 @@ public enum VaultExportFormat: String, CaseIterable, Identifiable {
 public enum VaultInterchange {
     public static let maximumTransferBytes = 32 * 1024 * 1024
     public static func read(from url: URL) throws -> VaultImportPreview {
-        if let format = LegacyVaultFormat(url: url) { throw VaultError.message("\(format.title) 需要源库主密码，请使用旧库读取入口。") }
+        if let format = LegacyVaultFormat(url: url) { throw VaultError.message(L("\(format.title) 需要源库主密码，请使用旧库读取入口。")) }
         var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else { throw VaultError.message("找不到导入文件。") }
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else { throw VaultError.message(L("找不到导入文件。")) }
         if isDirectory.boolValue || url.pathExtension.lowercased() == "1pif" { return try OnePasswordImporter.readPreview(from: url) }
         let bytes = try BoundedFileReader.read(url, maximumBytes: url.pathExtension.lowercased() == "1pux" ? 64 * 1024 * 1024 : maximumTransferBytes)
         switch url.pathExtension.lowercased() {
         case "json": return try decodeJSON(bytes)
         case "csv": return try decodeCSV(bytes)
         case "1pux": return try decode1PUX(bytes)
-        default: throw VaultError.message("请选择 .1pif、.1pux、.json 或 .csv 文件。OPVault 或 AgileKeychain 请从旧库读取入口输入主密码。")
+        default: throw VaultError.message(L("请选择 .1pif、.1pux、.json 或 .csv 文件。OPVault 或 AgileKeychain 请从旧库读取入口输入主密码。"))
         }
     }
     public static func decodeJSON(_ data: Data) throws -> VaultImportPreview {
-        guard data.count <= maximumTransferBytes else { throw VaultError.message("导入文件过大。") }
+        guard data.count <= maximumTransferBytes else { throw VaultError.message(L("导入文件过大。")) }
         let document: VaultTransferDocument
         do { document = try JSONDecoder().decode(VaultTransferDocument.self, from: data) }
-        catch { throw VaultError.message("不是有效的 PasswordCraft 完整 JSON 导出。") }
+        catch { throw VaultError.message(L("不是有效的 PasswordCraft 完整 JSON 导出。")) }
         try document.validate()
-        return VaultImportPreview(document: document, formatName: "PasswordCraft 完整 JSON")
+        return VaultImportPreview(document: document, formatName: L("PasswordCraft 完整 JSON"))
     }
     public static func planMerge(_ preview: VaultImportPreview, existing: [VaultItem], existingRevisions: [VaultRevision] = [], existingBlobs: [String: Data] = [:], policy: VaultMergePolicy = .skipExisting) throws -> VaultImportMerge {
         try preview.document.validate()
@@ -123,12 +123,12 @@ public enum VaultInterchange {
             for var revision in groupedRevisions[original.id] ?? [] {
                 if copied { revision.id = UUID(); revision.snapshot.id = item.id; revision.snapshot.sourceIdentity = nil }
                 if let prior = revisions.first(where: { $0.id == revision.id }) {
-                    guard prior == revision else { throw VaultError.message("导入历史 ID 与现有历史冲突，整批未导入。") }
+                    guard prior == revision else { throw VaultError.message(L("导入历史 ID 与现有历史冲突，整批未导入。")) }
                 } else { revisions.append(revision) }
             }
             added += 1
         }
-        if conflicts > 0 { warnings.append("\(conflicts) 个来源项目与现有内容不同，已跳过，未覆盖本地修改。可选择作为副本导入后自行比较。") }
+        if conflicts > 0 { warnings.append(L("\(conflicts) 个来源项目与现有内容不同，已跳过，未覆盖本地修改。可选择作为副本导入后自行比较。")) }
         let mergedBlobs = try AttachmentStore.merging(preview.document.blobs, into: existingBlobs)
         let result = VaultTransferDocument(items: items, revisions: revisions, blobs: AttachmentStore.referenced(items: items, revisions: revisions, in: mergedBlobs))
         try result.validate()
@@ -152,11 +152,11 @@ public enum VaultInterchange {
         case .nativeJSON:
             let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]; bytes = try encoder.encode(document)
         case .onePIF:
-            guard document.blobs.isEmpty else { throw VaultError.message("1PIF 单文件无法保留这些附件，请选择完整 JSON 或完整 CSV 导出。") }
+            guard document.blobs.isEmpty else { throw VaultError.message(L("1PIF 单文件无法保留这些附件，请选择完整 JSON 或完整 CSV 导出。")) }
             bytes = Data(try document.items.map { try encode1PIF($0, revisions: document.revisions) }.joined(separator: "\n***5642bee8-a5ff-11dc-8314-0800200c9a66***\n").utf8)
         case .csv: bytes = try encodeCSV(document)
         }
-        guard bytes.count <= maximumTransferBytes else { throw VaultError.message("导出内容超过 32 MiB 限制。请减少数据后重试。") }
+        guard bytes.count <= maximumTransferBytes else { throw VaultError.message(L("导出内容超过 32 MiB 限制。请减少数据后重试。")) }
         return bytes
     }
     public static func export(_ document: VaultTransferDocument, to url: URL, format: VaultExportFormat) throws {
@@ -228,39 +228,39 @@ public enum VaultInterchange {
         switch kind { case .password: return "concealed"; case .monthYear: return "monthYear"; case .otp: return "totp"; default: return kind.rawValue }
     }
     public static func decodeCSV(_ data: Data) throws -> VaultImportPreview {
-        guard data.count <= maximumTransferBytes, let string = String(data: data, encoding: .utf8) else { throw VaultError.message("CSV 必须是 32 MiB 以内的 UTF-8 文件。") }
+        guard data.count <= maximumTransferBytes, let string = String(data: data, encoding: .utf8) else { throw VaultError.message(L("CSV 必须是 32 MiB 以内的 UTF-8 文件。")) }
         let rows = try CSVCodec.parse(string)
-        guard let header = rows.first, !header.isEmpty else { throw VaultError.message("CSV 缺少列标题。") }
+        guard let header = rows.first, !header.isEmpty else { throw VaultError.message(L("CSV 缺少列标题。")) }
         let keys = header.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-        guard Set(keys).count == keys.count else { throw VaultError.message("CSV 列标题重复。") }
+        guard Set(keys).count == keys.count else { throw VaultError.message(L("CSV 列标题重复。")) }
         var items: [VaultItem] = []; var revisions: [VaultRevision] = []; var warnings = [String](); var blobs: [String: Data] = [:]
         let hasRich = keys.contains("localvault_json")
         for (index, row) in rows.dropFirst().enumerated() {
             if row.allSatisfy(\.isEmpty) { continue }
-            guard row.count == keys.count else { throw VaultError.message("CSV 第 \(index + 2) 行列数不匹配，整批未导入。") }
+            guard row.count == keys.count else { throw VaultError.message(L("CSV 第 \(index + 2) 行列数不匹配，整批未导入。")) }
             let values = Dictionary(uniqueKeysWithValues: zip(keys, row))
             if let rich = values["localvault_json"], !rich.isEmpty {
                 let part = try decodeJSON(Data(rich.utf8)).document
-                guard part.items.count == 1 else { throw VaultError.message("CSV 完整数据列每行必须恰好含一个项目。") }
+                guard part.items.count == 1 else { throw VaultError.message(L("CSV 完整数据列每行必须恰好含一个项目。")) }
                 var item = part.items[0]
                 // Visible CSV columns are authoritative if a user edited them outside the app.
                 item.title = values["title"] ?? item.title; item.username = values["username"] ?? item.username
                 item.password = values["password"] ?? item.password; item.url = values["url"] ?? item.url
                 item.notes = values["notes"] ?? item.notes
                 if let category = values["category"] { item.category = category }
-                if let state = values["state"] { guard let parsed = ItemState(rawValue: state) else { throw VaultError.message("CSV 项目状态无效。") }; item.state = parsed }
+                if let state = values["state"] { guard let parsed = ItemState(rawValue: state) else { throw VaultError.message(L("CSV 项目状态无效。")) }; item.state = parsed }
                 items.append(item); revisions += part.revisions
                 blobs = try AttachmentStore.merging(part.blobs, into: blobs)
             } else {
                 let title = values["title"] ?? values["name"] ?? ""
-                guard !title.isEmpty else { throw VaultError.message("CSV 第 \(index + 2) 行缺少 title/name。") }
+                guard !title.isEmpty else { throw VaultError.message(L("CSV 第 \(index + 2) 行缺少 title/name。")) }
                 let canonical = try JSONSerialization.data(withJSONObject: values, options: [.sortedKeys])
                 let identity = values["uuid"].flatMap { $0.isEmpty ? nil : "csv:" + $0 } ?? "csv-content:" + OnePasswordImporter.hexDigest(canonical)
                 var item = VaultItem(id: OnePasswordImporter.stableID(identity), title: title,
                                      username: values["username"] ?? values["user name"] ?? "", password: values["password"] ?? "",
                                      url: values["url"] ?? values["website"] ?? "", notes: values["notes"] ?? "", category: values["category"] ?? "登录",
                                      updatedAt: Date(timeIntervalSince1970: 0), importedJSON: String(data: canonical, encoding: .utf8), createdAt: Date(timeIntervalSince1970: 0), sourceIdentity: identity)
-                if let raw = values["state"], !raw.isEmpty { guard let state = ItemState(rawValue: raw) else { throw VaultError.message("CSV 项目状态无效。") }; item.state = state }
+                if let raw = values["state"], !raw.isEmpty { guard let state = ItemState(rawValue: raw) else { throw VaultError.message(L("CSV 项目状态无效。")) }; item.state = state }
                 if item.state == .trashed { item.deletedAt = item.updatedAt }
                 if let tags = values["tags"], !tags.isEmpty { item.tags = tags.components(separatedBy: ";") }
                 let known: Set<String> = ["title","name","username","user name","password","url","website","notes","category","state","tags","uuid","localvault_json"]
@@ -269,8 +269,8 @@ public enum VaultInterchange {
                 items.append(item)
             }
         }
-        if !hasRich { warnings.append("普通 CSV 不含完整历史或类型信息；额外列保留为文本字段。无来源 ID 的记录仅能按完全相同内容去重。") }
-        guard !items.isEmpty else { throw VaultError.message("CSV 没有项目。") }
+        if !hasRich { warnings.append(L("普通 CSV 不含完整历史或类型信息；额外列保留为文本字段。无来源 ID 的记录仅能按完全相同内容去重。")) }
+        guard !items.isEmpty else { throw VaultError.message(L("CSV 没有项目。")) }
         let document = VaultTransferDocument(items: items, revisions: revisions, blobs: blobs); try document.validate()
         return VaultImportPreview(document: document, formatName: "CSV", warnings: warnings)
     }
@@ -284,7 +284,7 @@ public enum VaultInterchange {
             let row = "\r\n" + [item.title,item.username,item.password,item.url,item.notes,item.category,item.state.rawValue,rich].map(CSVCodec.quote).joined(separator: ",")
             // Shared blobs repeat across CSV rows. Enforce the output budget
             // before retaining each expanded row, not after building all rows.
-            guard row.utf8.count <= maximumTransferBytes - result.count else { throw VaultError.message("CSV 包含重复附件内容，超过 32 MiB 导出限制；请选择完整 JSON。") }
+            guard row.utf8.count <= maximumTransferBytes - result.count else { throw VaultError.message(L("CSV 包含重复附件内容，超过 32 MiB 导出限制；请选择完整 JSON。")) }
             result.append(contentsOf: row.utf8)
         }
         return result
@@ -295,17 +295,17 @@ enum PlaintextExportWriter {
     static func write(_ data: Data, to url: URL) throws {
         let temporary = url.deletingLastPathComponent().appendingPathComponent(".passwordcraft-export-\(UUID().uuidString).tmp")
         let fd = Darwin.open(temporary.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR)
-        guard fd >= 0 else { throw VaultError.message("无法创建导出文件，请检查目录权限。") }
+        guard fd >= 0 else { throw VaultError.message(L("无法创建导出文件，请检查目录权限。")) }
         defer { Darwin.close(fd); unlink(temporary.path) }
         try data.withUnsafeBytes { buffer in
             var offset = 0
             while offset < buffer.count {
                 let written = Darwin.write(fd, buffer.baseAddress!.advanced(by: offset), buffer.count - offset)
                 if written < 0, errno == EINTR { continue }
-                guard written > 0 else { throw VaultError.message("导出写入失败，未发布半成品。") }; offset += written
+                guard written > 0 else { throw VaultError.message(L("导出写入失败，未发布半成品。")) }; offset += written
             }
         }
-        guard fsync(fd) == 0, renamex_np(temporary.path, url.path, UInt32(RENAME_EXCL)) == 0 else { throw VaultError.message("导出失败：文件已存在或磁盘写入失败，原文件未覆盖。") }
+        guard fsync(fd) == 0, renamex_np(temporary.path, url.path, UInt32(RENAME_EXCL)) == 0 else { throw VaultError.message(L("导出失败：文件已存在或磁盘写入失败，原文件未覆盖。")) }
     }
 }
 
@@ -327,11 +327,11 @@ private enum CSVCodec {
             else if character == "\n" || character == "\r\n" || character == "\r" {
                 row.append(field); rows.append(row); row = []; field = ""; closed = false
             } else {
-                guard !closed, character != "\"" else { throw VaultError.message("CSV 引号格式不正确。") }; field.append(character)
+                guard !closed, character != "\"" else { throw VaultError.message(L("CSV 引号格式不正确。")) }; field.append(character)
             }
             index = next
         }
-        guard !quoted else { throw VaultError.message("CSV 引号未结束。") }
+        guard !quoted else { throw VaultError.message(L("CSV 引号未结束。")) }
         if !field.isEmpty || !row.isEmpty || closed { row.append(field); rows.append(row) }
         return rows
     }

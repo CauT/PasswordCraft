@@ -102,12 +102,12 @@ struct VaultDocument: Codable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let version = try c.decode(Int.self, forKey: .schemaVersion)
-        guard [2, 3].contains(version) else { throw VaultError.message("不支持的密码库数据版本。") }
+        guard [2, 3].contains(version) else { throw VaultError.message(L("不支持的密码库数据版本。")) }
         id = try c.decode(UUID.self, forKey: .id)
         items = try c.decode([VaultItem].self, forKey: .items)
         revisions = try c.decode([VaultRevision].self, forKey: .revisions)
         blobs = try c.decodeIfPresent([String: Data].self, forKey: .blobs) ?? [:]
-        guard version == 3 || (blobs.isEmpty && (items + revisions.map(\.snapshot)).allSatisfy({ $0.attachments.isEmpty })) else { throw VaultError.message("旧格式不能包含附件。") }
+        guard version == 3 || (blobs.isEmpty && (items + revisions.map(\.snapshot)).allSatisfy({ $0.attachments.isEmpty })) else { throw VaultError.message(L("旧格式不能包含附件。")) }
         schemaVersion = 3
     }
 }

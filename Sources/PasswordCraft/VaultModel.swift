@@ -7,11 +7,12 @@ enum VaultFilter: Hashable {
     case all, favorites, archived, trash, category(String), tag(String)
     var title: String {
         switch self {
-        case .all: return "全部项目"
-        case .favorites: return "收藏"
-        case .archived: return "归档"
-        case .trash: return "回收站"
-        case .category(let value), .tag(let value): return value
+        case .all: return L("全部项目")
+        case .favorites: return L("收藏")
+        case .archived: return L("归档")
+        case .trash: return L("回收站")
+        case .category(let value): return L10n.category(value)
+        case .tag(let value): return value
         }
     }
 }
@@ -73,7 +74,7 @@ enum VaultImportFlow { case encrypted(URL), preview(VaultImportPreview) }
 
     init() {
         hotKey = QuickAccessHotKey()
-        if let status = hotKey?.status, status != 0 { quickAccessStatus = "全局快捷键注册失败（\(status)），可使用菜单栏打开快速访问。" }
+        if let status = hotKey?.status, status != 0 { quickAccessStatus = L("全局快捷键注册失败（\(status)），可使用菜单栏打开快速访问。") }
         observers.append(NotificationCenter.default.addObserver(forName: .passwordCraftQuickAccessRequested, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.showQuickAccess() }
         })
@@ -131,14 +132,14 @@ enum VaultImportFlow { case encrypted(URL), preview(VaultImportPreview) }
     func showError(_ value: Error) { error = value.localizedDescription }
     func chooseVault() {
         guard !busy, !hasDocumentSheet else { return }
-        let panel = NSOpenPanel(); panel.title = "打开本地加密密码库"; panel.canChooseDirectories = false
+        let panel = NSOpenPanel(); panel.title = L("打开本地加密密码库"); panel.canChooseDirectories = false
         if panel.runModal() == .OK, let value = panel.url { selectVault(value) }
     }
-    func newVaultURL() -> URL? { destination(title: "新建本地加密密码库", name: "我的密码库.localvault") }
+    func newVaultURL() -> URL? { destination(title: L("新建本地加密密码库"), name: L("我的密码库.localvault")) }
     func destination(title: String, name: String) -> URL? {
         let panel = NSSavePanel(); panel.title = title; panel.nameFieldStringValue = name
         guard panel.runModal() == .OK, let result = panel.url else { return nil }
-        guard !FileManager.default.fileExists(atPath: result.path) else { error = "请选择新文件名，不能覆盖已有文件。"; return nil }
+        guard !FileManager.default.fileExists(atPath: result.path) else { error = L("请选择新文件名，不能覆盖已有文件。"); return nil }
         return result
     }
     private func register(_ url: URL) {
@@ -205,6 +206,13 @@ enum VaultImportFlow { case encrypted(URL), preview(VaultImportPreview) }
         biometricAvailable = capability.available; biometricExplanation = capability.explanation
         biometricEnabled = url.map { biometrics.isEnabled($0) } ?? false
     }
+    func languageChanged() {
+        refreshBiometrics()
+        quickPanel?.updateLanguage()
+        if let status = hotKey?.status, status != 0 {
+            quickAccessStatus = L("全局快捷键注册失败（\(status)），可使用菜单栏打开快速访问。")
+        }
+    }
     func enableBiometrics() {
         guard unlocked, unlockedWithMasterPassword, !busy, let target = url else { return }
         busy = true; let operation = epoch
@@ -213,14 +221,14 @@ enum VaultImportFlow { case encrypted(URL), preview(VaultImportPreview) }
                 let material = try await worker.deviceUnlockMaterial(generation: operation)
                 guard operation == epoch else { return }
                 try biometrics.enable(material, for: target)
-                refreshBiometrics(); notice = "Touch ID 已启用；设备解锁密钥仅保存在此 Mac 的受保护钥匙串中。"
+                refreshBiometrics(); notice = L("Touch ID 已启用；设备解锁密钥仅保存在此 Mac 的受保护钥匙串中。")
             } catch { if operation == epoch { showError(error) } }
             if operation == epoch { busy = false }
         }
     }
     func disableBiometrics() {
         guard !busy, let target = url else { return }
-        do { try biometrics.disable(for: target); refreshBiometrics(); notice = "设备解锁记录已移除。" }
+        do { try biometrics.disable(for: target); refreshBiometrics(); notice = L("设备解锁记录已移除。") }
         catch { showError(error) }
     }
     func unlockWithBiometrics() {
@@ -287,14 +295,14 @@ enum VaultImportFlow { case encrypted(URL), preview(VaultImportPreview) }
     func save(_ item: VaultItem) {
         var next = items
         if let index = next.firstIndex(where: { $0.id == item.id }) { next[index] = item } else { next.append(item) }
-        perform(select: item.id, revealInAll: !items.contains(where: { $0.id == item.id }), message: "已保存；修改前的恢复点已自动加密备份。") { worker, generation in try await worker.save(next, generation: generation) }
+        perform(select: item.id, revealInAll: !items.contains(where: { $0.id == item.id }), message: L("已保存；修改前的恢复点已自动加密备份。")) { worker, generation in try await worker.save(next, generation: generation) }
     }
     func pruneSelection() { selectedIDs.formIntersection(Set(visible.map(\.id))) }
     func batch(_ operation: BatchEdit.Operation) {
         let ids = selectedIDs.intersection(Set(visible.map(\.id)))
         do {
             let next = try BatchEdit.applying(operation, to: items, ids: ids)
-            perform(message: "已批量更新 \(ids.count) 个项目。") { worker, generation in try await worker.save(next, generation: generation) }
+            perform(message: L("已批量更新 \(ids.count) 个项目。")) { worker, generation in try await worker.save(next, generation: generation) }
         } catch { showError(error) }
     }
     func changeState(_ item: VaultItem, to state: ItemState) {
@@ -302,10 +310,10 @@ enum VaultImportFlow { case encrypted(URL), preview(VaultImportPreview) }
         save(updated)
     }
     func purge(_ item: VaultItem) {
-        perform(message: "项目及库内历史已永久删除。已有加密备份仍可能包含它。") { worker, generation in try await worker.purge(itemID: item.id, generation: generation) }
+        perform(message: L("项目及库内历史已永久删除。已有加密备份仍可能包含它。")) { worker, generation in try await worker.purge(itemID: item.id, generation: generation) }
     }
     func restore(_ revision: VaultRevision) {
-        perform(select: revision.itemID, message: "历史版本已恢复，恢复前内容也已保留为历史。") { worker, generation in
+        perform(select: revision.itemID, message: L("历史版本已恢复，恢复前内容也已保留为历史。")) { worker, generation in
             try await worker.restoreRevision(itemID: revision.itemID, revisionID: revision.id, generation: generation)
         }
     }
@@ -330,7 +338,7 @@ enum VaultImportFlow { case encrypted(URL), preview(VaultImportPreview) }
         board.setData(Data(), forType: NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"))
         board.setData(Data(), forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType"))
         let lifetime = min(30, max(0, validFor))
-        clipboardChange = board.changeCount; let count = board.changeCount; notice = "已复制，\(Int(ceil(lifetime))) 秒内清除"
+        clipboardChange = board.changeCount; let count = board.changeCount; notice = L("已复制，\(Int(ceil(lifetime))) 秒内清除")
         DispatchQueue.main.asyncAfter(deadline: .now() + lifetime) { [weak self] in
             guard self?.clipboardChange == count else { return }; self?.clearClipboard()
         }
@@ -341,7 +349,7 @@ enum VaultImportFlow { case encrypted(URL), preview(VaultImportPreview) }
     }
     func importFile() {
         guard canOperate else { return }
-        let panel = NSOpenPanel(); panel.title = "导入 OPVault、AgileKeychain、1PIF、1PUX、CSV 或完整 JSON"; panel.canChooseDirectories = true
+        let panel = NSOpenPanel(); panel.title = L("导入 OPVault、AgileKeychain、1PIF、1PUX、CSV 或完整 JSON"); panel.canChooseDirectories = true
         guard panel.runModal() == .OK, let source = panel.url, unlocked else { return }
         if LegacyVaultFormat(url: source) != nil { importFlow = .encrypted(source); return }
         busy = true; let operation = epoch
@@ -364,44 +372,44 @@ enum VaultImportFlow { case encrypted(URL), preview(VaultImportPreview) }
     }
     func addAttachment(to item: VaultItem) {
         guard canOperate else { return }
-        let panel = NSOpenPanel(); panel.title = "添加加密附件（单个最多 16 MiB）"; panel.canChooseDirectories = false
+        let panel = NSOpenPanel(); panel.title = L("添加加密附件（单个最多 16 MiB）"); panel.canChooseDirectories = false
         guard panel.runModal() == .OK, let source = panel.url else { return }
         let mediaType = UTType(filenameExtension: source.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
-        perform(select: item.id, message: "附件已加密保存，修改前版本可从历史恢复。") { worker, generation in
+        perform(select: item.id, message: L("附件已加密保存，修改前版本可从历史恢复。")) { worker, generation in
             try await worker.addAttachment(itemID: item.id, from: source, mediaType: mediaType, generation: generation)
         }
     }
     func removeAttachment(_ attachment: VaultAttachment, from item: VaultItem) {
-        perform(select: item.id, message: "附件已从当前版本移除，历史和已有备份仍保留原内容。") { worker, generation in
+        perform(select: item.id, message: L("附件已从当前版本移除，历史和已有备份仍保留原内容。")) { worker, generation in
             try await worker.removeAttachment(itemID: item.id, attachmentID: attachment.id, generation: generation)
         }
     }
     func attachmentData(_ attachment: VaultAttachment, itemID: UUID, revisionID: UUID?) async throws -> Data {
         let operation = epoch
         let bytes = try await worker.attachmentData(itemID: itemID, attachmentID: attachment.id, revisionID: revisionID, generation: operation)
-        guard operation == epoch, unlocked else { throw VaultError.message("密码库已锁定，附件读取取消。") }
+        guard operation == epoch, unlocked else { throw VaultError.message(L("密码库已锁定，附件读取取消。")) }
         return bytes
     }
     func exportAttachment(_ attachment: VaultAttachment, itemID: UUID, revisionID: UUID?) {
-        guard unlocked, !busy, let target = destination(title: "导出未加密附件", name: attachment.name) else { return }
+        guard unlocked, !busy, let target = destination(title: L("导出未加密附件"), name: attachment.name) else { return }
         busy = true; let operation = epoch
         Task {
             do {
                 try await worker.exportAttachment(itemID: itemID, attachmentID: attachment.id, revisionID: revisionID, to: target, generation: operation)
-                if epoch == operation { notice = "原始附件已明文导出，请妥善保管。" }
+                if epoch == operation { notice = L("原始附件已明文导出，请妥善保管。") }
             } catch { if epoch == operation { showError(error) } }
             if epoch == operation { busy = false }
         }
     }
     func commitImport(copies: Bool) {
         guard let preview = pendingImport else { return }
-        perform(message: "导入完成；已按选择处理重复项目。") { worker, generation in
+        perform(message: L("导入完成；已按选择处理重复项目。")) { worker, generation in
             try await worker.commitImport(preview, copies: copies, generation: generation)
         }
     }
     func backup() {
-        guard let target = destination(title: "保存加密副本", name: "密码库副本.localvault") else { return }
-        perform(message: "加密副本已保存，可通过「打开密码库」验证。") { worker, generation in try await worker.backup(target, generation: generation) }
+        guard let target = destination(title: L("保存加密副本"), name: L("密码库副本.localvault")) else { return }
+        perform(message: L("加密副本已保存，可通过「打开密码库」验证。")) { worker, generation in try await worker.backup(target, generation: generation) }
     }
     func changePassword(_ password: String) {
         // Remove the old protected key before rekeying. Cleanup failure must not
@@ -409,11 +417,11 @@ enum VaultImportFlow { case encrypted(URL), preview(VaultImportPreview) }
         guard unlocked, !busy, let target = url else { return }
         do { if biometrics.isEnabled(target) { try biometrics.disable(for: target) }; refreshBiometrics() }
         catch { showError(error); return }
-        perform(message: "主密码已更新。改密前的备份仍使用原主密码，请保留原密码以便恢复。") { worker, generation in try await worker.changePassword(password, generation: generation) }
+        perform(message: L("主密码已更新。改密前的备份仍使用原主密码，请保留原密码以便恢复。")) { worker, generation in try await worker.changePassword(password, generation: generation) }
     }
     func revealBackups() { if let directory = backupDirectory { NSWorkspace.shared.open(directory) } }
     func recover(_ backup: VaultBackup, password: String) {
-        guard !busy, let target = destination(title: "恢复为新的密码库文件", name: "恢复的密码库.localvault") else { return }
+        guard !busy, let target = destination(title: L("恢复为新的密码库文件"), name: L("恢复的密码库.localvault")) else { return }
         busy = true; let operation = epoch
         Task {
             do {
@@ -425,12 +433,12 @@ enum VaultImportFlow { case encrypted(URL), preview(VaultImportPreview) }
     }
     func export(_ format: VaultExportFormat) {
         let ext: String = format == .nativeJSON ? "json" : format == .onePIF ? "1pif" : "csv"
-        guard !busy, let target = destination(title: "导出未加密数据", name: "密码库导出.\(ext)") else { return }
+        guard !busy, let target = destination(title: L("导出未加密数据"), name: L("密码库导出.\(ext)")) else { return }
         busy = true; let operation = epoch
         Task {
             do {
                 try await worker.exportTransfer(to: target, format: format, generation: operation)
-                if epoch == operation { showExport = false; notice = "明文导出已保存，请妥善保管并核对。" }
+                if epoch == operation { showExport = false; notice = L("明文导出已保存，请妥善保管并核对。") }
             } catch { if epoch == operation { showError(error) } }
             if epoch == operation { busy = false }
         }

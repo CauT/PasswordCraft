@@ -22,13 +22,13 @@ struct BackupStore {
             var info = stat()
             if lstat(path.path, &info) == 0 {
                 guard (info.st_mode & S_IFMT) == S_IFDIR, info.st_uid == getuid(), (info.st_mode & 0o077) == 0 else {
-                    throw VaultError.message("自动备份目录必须是本人拥有的私有普通目录（0700），不能是链接。")
+                    throw VaultError.message(L("自动备份目录必须是本人拥有的私有普通目录（0700），不能是链接。"))
                 }
             } else {
-                guard errno == ENOENT else { throw VaultError.message("无法检查自动备份目录。") }
+                guard errno == ENOENT else { throw VaultError.message(L("无法检查自动备份目录。")) }
                 try FileManager.default.createDirectory(at: path, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
                 guard lstat(path.path, &info) == 0, (info.st_mode & S_IFMT) == S_IFDIR, info.st_uid == getuid(), (info.st_mode & 0o077) == 0 else {
-                    throw VaultError.message("自动备份目录权限验证失败。")
+                    throw VaultError.message(L("自动备份目录权限验证失败。"))
                 }
             }
         }
@@ -56,7 +56,7 @@ struct BackupStore {
         do {
             try prepare()
             let decoded = try VaultCrypto.document(from: bytes, key: key)
-            guard decoded.id == vaultID else { throw VaultError.message("自动备份密码库身份不一致。") }
+            guard decoded.id == vaultID else { throw VaultError.message(L("自动备份密码库身份不一致。")) }
             // A successful prior post-save copy is exactly the next pre-save
             // copy. Authenticate it before reusing this recovery point.
             if reason == "pre-save", let latest = try list(currentSalt: envelope.salt).first(where: { $0.usesCurrentPassword && $0.reason == "pre-save" }) {
@@ -68,11 +68,11 @@ struct BackupStore {
             let destination = directory.appendingPathComponent(name)
             try VaultFile.publish(bytes, to: destination, replacingExisting: false)
             let stored = try BoundedFileReader.read(destination, maximumBytes: VaultCrypto.maximumFileSize)
-            guard stored == bytes else { throw VaultError.message("自动备份字节验证失败。") }
+            guard stored == bytes else { throw VaultError.message(L("自动备份字节验证失败。")) }
             let verified = try VaultCrypto.document(from: stored, key: key)
-            guard verified.id == vaultID else { throw VaultError.message("自动备份密码库身份不一致。") }
+            guard verified.id == vaultID else { throw VaultError.message(L("自动备份密码库身份不一致。")) }
         } catch {
-            throw VaultError.message("自动加密备份未完成。\(error.localizedDescription)\n备份目录：\(directory.path)")
+            throw VaultError.message(L("自动加密备份未完成。\(error.localizedDescription)\n备份目录：\(directory.path)"))
         }
     }
     /// Pruning is after the main commit. Cleanup failure is a warning, never a
@@ -91,6 +91,6 @@ struct BackupStore {
             }
             for old in verified.dropFirst(20) { try FileManager.default.removeItem(at: old.url) }
             return nil
-        } catch { return "密码库已保存；旧备份清理未完成，备份仍保留。\(error.localizedDescription)" }
+        } catch { return L("密码库已保存；旧备份清理未完成，备份仍保留。\(error.localizedDescription)") }
     }
 }

@@ -32,7 +32,7 @@ struct OnePasswordFileInventory {
             }
         }
         var cleaned = record; cleaned["details"] = details
-        guard !OnePasswordImporter.containsAttachments(cleaned) else { throw VaultError.message("1PUX 含未识别的附件结构，整批未导入。请保留完整导出。") }
+        guard !OnePasswordImporter.containsAttachments(cleaned) else { throw VaultError.message(L("1PUX 含未识别的附件结构，整批未导入。请保留完整导出。")) }
         // One document may be referenced repeatedly by fields in the same item.
         var unique: [VaultAttachment] = []
         for attachment in attachments {
@@ -51,13 +51,13 @@ struct OnePasswordFileInventory {
               size.doubleValue >= 0, size.doubleValue <= Double(AttachmentStore.maximumAttachmentBytes),
               size.doubleValue == Double(size.intValue) else { throw invalid() }
         let path = "files/\(id)___\(name)"
-        guard let bytes = files[path], bytes.count == size.intValue else { throw VaultError.message("1PUX 附件缺失、名称不匹配或长度不符，整批未导入。") }
+        guard let bytes = files[path], bytes.count == size.intValue else { throw VaultError.message(L("1PUX 附件缺失、名称不匹配或长度不符，整批未导入。")) }
         let attachment = VaultAttachment(id: OnePasswordImporter.stableID(source + ":attachment:" + id), name: name, data: bytes)
         blobs[attachment.blobID] = bytes; consumed.insert(path)
         return attachment
     }
     func requireComplete() throws {
-        guard consumed == Set(files.keys) else { throw VaultError.message("1PUX 有未关联的文件或尚未支持的自定义图标，整批未导入。请保留完整导出。") }
+        guard consumed == Set(files.keys) else { throw VaultError.message(L("1PUX 有未关联的文件或尚未支持的自定义图标，整批未导入。请保留完整导出。")) }
     }
-    private func invalid() -> VaultError { .message("1PUX 附件元数据无效或超出 16 MiB 限制，整批未导入。") }
+    private func invalid() -> VaultError { .message(L("1PUX 附件元数据无效或超出 16 MiB 限制，整批未导入。")) }
 }

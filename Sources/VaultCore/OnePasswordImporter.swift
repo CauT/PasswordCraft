@@ -6,23 +6,23 @@ public enum OnePasswordImporter {
     public static func read(from selectedURL: URL) throws -> [VaultItem] { try readPreview(from: selectedURL).document.items }
     public static func readPreview(from selectedURL: URL) throws -> VaultImportPreview {
         var directory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: selectedURL.path, isDirectory: &directory) else { throw VaultError.message("找不到导入文件。") }
+        guard FileManager.default.fileExists(atPath: selectedURL.path, isDirectory: &directory) else { throw VaultError.message(L("找不到导入文件。")) }
         let package = directory.boolValue ? selectedURL :
             (selectedURL.lastPathComponent == "data.1pif" && selectedURL.deletingLastPathComponent().pathExtension.lowercased() == "1pif" ? selectedURL.deletingLastPathComponent() : nil)
         let files: [String: Data]
         let data: Data
         if let package {
             files = try ReadOnlyPackage(package).snapshotTree(maximumFileBytes: VaultInterchange.maximumTransferBytes, maximumTotalBytes: 64 * 1024 * 1024)
-            guard let contents = files["data.1pif"] else { throw VaultError.message("导出目录缺少 data.1pif。") }
+            guard let contents = files["data.1pif"] else { throw VaultError.message(L("导出目录缺少 data.1pif。")) }
             data = contents
         } else { files = [:]; data = try BoundedFileReader.read(selectedURL, maximumBytes: VaultInterchange.maximumTransferBytes) }
-        guard let text = String(data: data, encoding: .utf8) else { throw VaultError.message("1PIF 必须是 UTF-8 文本。") }
+        guard let text = String(data: data, encoding: .utf8) else { throw VaultError.message(L("1PIF 必须是 UTF-8 文本。")) }
         return try parsePreview(text, packageFiles: files)
     }
     public static func parse(_ text: String) throws -> [VaultItem] { try parsePreview(text).document.items }
     public static func parsePreview(_ text: String) throws -> VaultImportPreview { try parsePreview(text, packageFiles: [:]) }
     private static func parsePreview(_ text: String, packageFiles: [String: Data]) throws -> VaultImportPreview {
-        guard text.utf8.count <= VaultInterchange.maximumTransferBytes else { throw VaultError.message("导入内容超过 32 MiB 限制。") }
+        guard text.utf8.count <= VaultInterchange.maximumTransferBytes else { throw VaultError.message(L("导入内容超过 32 MiB 限制。")) }
         var records: [(record: [String: Any], original: String)] = []
         var recordsByID: [String: [String: Any]] = [:]
         for (number, line) in text.components(separatedBy: "\n").enumerated() {
@@ -30,11 +30,11 @@ public enum OnePasswordImporter {
             if number == 0 { trimmed = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "\u{feff}")) }
             if trimmed.isEmpty || trimmed == "***" || trimmed == "***5642bee8-a5ff-11dc-8314-0800200c9a66***" { continue }
             guard let data = trimmed.data(using: .utf8), let raw = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                throw VaultError.message("第 \(number + 1) 行不是支持的 1PIF 条目，整批未导入。")
+                throw VaultError.message(L("第 \(number + 1) 行不是支持的 1PIF 条目，整批未导入。"))
             }
             let record = try normalizedPIFRecord(raw)
             if let id = record["uuid"] as? String {
-                guard recordsByID.updateValue(record, forKey: id) == nil else { throw VaultError.message("1PIF 包含重复来源 UUID，整批未导入。") }
+                guard recordsByID.updateValue(record, forKey: id) == nil else { throw VaultError.message(L("1PIF 包含重复来源 UUID，整批未导入。")) }
             }
             records.append((record, trimmed))
         }
@@ -46,7 +46,7 @@ public enum OnePasswordImporter {
                 if let parent = recordsByID[folder], isFolderType(parent["typeName"] as? String ?? ""), let title = parent["title"] as? String {
                     let tags = record["tags"] as? [String] ?? (record["openContents"] as? [String: Any])?["tags"] as? [String] ?? []
                     record["tags"] = tags + ["原文件夹/" + title]
-                } else { warnings.append("部分文件夹不在本次导出中，关联 ID 保留在来源快照；未编造文件夹名称。") }
+                } else { warnings.append(L("部分文件夹不在本次导出中，关联 ID 保留在来源快照；未编造文件夹名称。")) }
             }
             var mapped = try mapRecord(record, original: entry.original)
             if let id = record["uuid"] as? String { mapped.item.attachments = try inventory.resolve(owner: id, source: mapped.item.sourceIdentity!) }
@@ -54,11 +54,11 @@ public enum OnePasswordImporter {
             for index in mapped.revisions.indices { mapped.revisions[index].snapshot.attachments = mapped.item.attachments }
             items.append(mapped.item); revisions += mapped.revisions; warnings += mapped.warnings
         }
-        guard !items.isEmpty else { throw VaultError.message("文件中没有可导入的 1PIF 条目。") }
+        guard !items.isEmpty else { throw VaultError.message(L("文件中没有可导入的 1PIF 条目。")) }
         try inventory.requireComplete()
         let document = VaultTransferDocument(items: items, revisions: revisions, blobs: inventory.blobs); try document.validate()
-        if !inventory.blobs.isEmpty { warnings.append("附件按导出目录中的条目 ID 与文件名迁入。1PIF 没有完整附件清单，无法发现来源中已被删除的附件，请核对原库；密码历史的其他字段与附件沿用当前记录。") }
-        if records.contains(where: { isFolderType($0.record["typeName"] as? String ?? "") }) { warnings.append("文件夹关联转成标签，文件夹与智能规则记录保留为普通项目；规则不执行。") }
+        if !inventory.blobs.isEmpty { warnings.append(L("附件按导出目录中的条目 ID 与文件名迁入。1PIF 没有完整附件清单，无法发现来源中已被删除的附件，请核对原库；密码历史的其他字段与附件沿用当前记录。")) }
+        if records.contains(where: { isFolderType($0.record["typeName"] as? String ?? "") }) { warnings.append(L("文件夹关联转成标签，文件夹与智能规则记录保留为普通项目；规则不执行。")) }
         warnings += mappingWarnings(items)
         return VaultImportPreview(document: document, formatName: "1Password 1PIF", warnings: Array(Set(warnings)).sorted())
     }
@@ -71,7 +71,7 @@ public enum OnePasswordImporter {
         let details: [String: Any]
         if let value = raw["details"] as? [String: Any] { details = value }
         else if isFolderType(type) { details = overview.filter { $0.key != "title" } }
-        else { throw VaultError.message("1PIF 条目缺少详情，整批未导入。") }
+        else { throw VaultError.message(L("1PIF 条目缺少详情，整批未导入。")) }
         try validateArrays(overview, keys: ["URLs"])
         try validateArrays(details, keys: ["URLs"])
         let urls = (overview["URLs"] as? [[String: Any]] ?? []).compactMap { $0["u"] as? String }
@@ -90,14 +90,14 @@ public enum OnePasswordImporter {
     /// Shared legacy field mapper; callers own container parsing and source identity.
     static func mapRecord(_ record: [String: Any], original: String, sourceIdentity: String? = nil) throws -> (item: VaultItem, revisions: [VaultRevision], warnings: [String]) {
         guard let title = record["title"] as? String, let type = record["typeName"] as? String,
-              let secure = record["secureContents"] as? [String: Any] else { throw VaultError.message("来源条目缺少标题、分类或字段，整批未导入。") }
+              let secure = record["secureContents"] as? [String: Any] else { throw VaultError.message(L("来源条目缺少标题、分类或字段，整批未导入。")) }
         var revisions: [VaultRevision] = []; var warnings: [String] = []
         try validateArrays(secure, keys: ["fields", "sections", "URLs", "urls", "passwordHistory"])
         for section in secure["sections"] as? [[String: Any]] ?? [] { try validateArrays(section, keys: ["fields"]) }
-        if containsAttachments(record) { throw VaultError.message("来源条目含未识别的附件结构，整批未导入。请保留完整原始导出。") }
+        if containsAttachments(record) { throw VaultError.message(L("来源条目含未识别的附件结构，整批未导入。请保留完整原始导出。")) }
         let suppliedID = record["uuid"] as? String
         let source = sourceIdentity ?? suppliedID.map { "1pif:" + $0 } ?? "1pif-content:" + hexDigest(Data(original.utf8))
-        if suppliedID == nil { warnings.append("部分条目没有来源 UUID，只能对完全相同的内容去重。") }
+        if suppliedID == nil { warnings.append(L("部分条目没有来源 UUID，只能对完全相同的内容去重。")) }
         let localID = (record["localvaultID"] as? String).flatMap(UUID.init(uuidString:)) ?? stableID(source)
         var item = VaultItem(id: localID, title: title, category: category(type), updatedAt: date(record["updatedAt"]), importedJSON: original,
                              createdAt: date(record["createdAt"]), sourceIdentity: source)
@@ -142,7 +142,7 @@ public enum OnePasswordImporter {
         item.additionalURLs = urls.compactMap { $0["url"] as? String }.filter { !$0.isEmpty && $0 != item.url }
         let passwordHistory = secure["passwordHistory"] as? [[String: Any]] ?? []
         for (index, previous) in passwordHistory.enumerated() {
-            guard let value = previous["value"] as? String else { throw VaultError.message("1PIF 密码历史值无效，整批未导入。") }
+            guard let value = previous["value"] as? String else { throw VaultError.message(L("1PIF 密码历史值无效，整批未导入。")) }
             var old = item; old.password = value; old.updatedAt = date(previous["time"])
             revisions.append(VaultRevision(id: stableID(source + ":passwordHistory:\(index)"), createdAt: old.updatedAt, snapshot: old))
         }
@@ -153,20 +153,20 @@ public enum OnePasswordImporter {
     static func mappingWarnings(_ items: [VaultItem]) -> [String] {
         var warnings: [String] = []
         let unknownCategories = items.filter { $0.category == "其他" }.count
-        if unknownCategories > 0 { warnings.append("\(unknownCategories) 个项目的来源分类没有专用模板，已归入「其他」并保留原文。") }
+        if unknownCategories > 0 { warnings.append(L("\(unknownCategories) 个项目的来源分类没有专用模板，已归入「其他」并保留原文。")) }
         let plainKinds: Set<String> = ["t", "s", "text", "string", "number", "integer", "double", "boolean", "bool", "null"]
         let fallback = items.flatMap(\.sections).flatMap(\.fields).filter {
             guard let kind = $0.importedKind?.lowercased() else { return false }
             return $0.kind == .text && !plainKinds.contains(kind)
         }.count
-        if fallback > 0 { warnings.append("\(fallback) 个复合或未识别类型字段以文本／JSON 保留，可编辑和导出；没有对应的专用控件，请核对来源内容。") }
+        if fallback > 0 { warnings.append(L("\(fallback) 个复合或未识别类型字段以文本／JSON 保留，可编辑和导出；没有对应的专用控件，请核对来源内容。")) }
         return warnings
     }
 
     static func validateArrays(_ object: [String: Any], keys: [String]) throws {
         for key in keys {
             if let value = object[key], !(value is NSNull), !(value is [[String: Any]]) {
-                throw VaultError.message("来源字段结构无效，整批未导入。请保留原始导出。")
+                throw VaultError.message(L("来源字段结构无效，整批未导入。请保留原始导出。"))
             }
         }
     }

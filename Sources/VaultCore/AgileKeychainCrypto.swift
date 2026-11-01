@@ -64,5 +64,5 @@ enum AgileKeychainCrypto {
         guard status == kCCSuccess else { throw invalid() }
         return Data(output.prefix(written))
     }
-    static func invalid() -> VaultError { .message("AgileKeychain 密码不正确、加密数据损坏或格式超出支持范围；整批未导入。") }
+    static func invalid() -> VaultError { .message(L("AgileKeychain 密码不正确、加密数据损坏或格式超出支持范围；整批未导入。")) }
 }

@@ -38,28 +38,31 @@ final class QuickAccessHotKey {
         panel = NSPanel(contentRect:NSRect(x:0,y:0,width:520,height:440),styleMask:[.titled,.closable,.utilityWindow],backing:.buffered,defer:false)
         super.init()
         self.model = model; panel.delegate = self
-        panel.title = "PasswordCraft · 快速访问"
+        panel.title = L("PasswordCraft · 快速访问")
         panel.isReleasedWhenClosed = false
         panel.level = .floating
         panel.contentView = NSHostingView(rootView: QuickAccessView().environmentObject(model))
         panel.center()
     }
     func windowWillClose(_ notification: Notification) { model?.hideQuickAccess() }
-    func show() { NSApp.activate(ignoringOtherApps:true); panel.makeKeyAndOrderFront(nil) }
+    func updateLanguage() { panel.title = L("PasswordCraft · 快速访问") }
+    func show() { updateLanguage(); NSApp.activate(ignoringOtherApps:true); panel.makeKeyAndOrderFront(nil) }
     func hide() { panel.orderOut(nil) }
 }
 
 struct QuickAccessView: View {
+    @AppStorage(AppLanguage.preferenceKey) private var interfaceLanguage = AppLanguage.english.rawValue
     @EnvironmentObject var model: VaultModel
     @FocusState private var searching: Bool
     var matches: [VaultSearchHit] { VaultSearch.search(model.unlockedVaults, query: model.quickQuery) }
     var body: some View {
+        let _ = interfaceLanguage
         VStack(alignment:.leading,spacing:12) {
-            HStack { Text("快速访问").font(.title2.bold()); Spacer(); Button("关闭",action:model.hideQuickAccess).keyboardShortcut(.cancelAction) }
-            Text("⌃⌥⌘L · 所有已解锁库 · 手动查找和复制").font(.caption).foregroundStyle(.secondary)
+            HStack { Text(L("快速访问")).font(.title2.bold()); Spacer(); Button(L("关闭"),action:model.hideQuickAccess).keyboardShortcut(.cancelAction) }
+            Text(L("⌃⌥⌘L · 所有已解锁库 · 手动查找和复制")).font(.caption).foregroundStyle(.secondary)
             if let status = model.quickAccessStatus { Text(status).font(.caption).foregroundStyle(.secondary) }
             if !model.unlockedVaults.isEmpty {
-                TextField("搜索所有已解锁库的普通字段",text:$model.quickQuery).textFieldStyle(.roundedBorder).focused($searching)
+                TextField(L("搜索所有已解锁库的普通字段"),text:$model.quickQuery).textFieldStyle(.roundedBorder).focused($searching)
                 ScrollView {
                     LazyVStack(alignment:.leading,spacing:14) {
                         ForEach(matches.prefix(50)) { hit in
@@ -67,26 +70,26 @@ struct QuickAccessView: View {
                             VStack(alignment:.leading,spacing:8) {
                                 Text(item.title).font(.headline)
                                 Text(hit.vaultURL.deletingPathExtension().lastPathComponent).font(.caption).foregroundStyle(.secondary).help(hit.vaultURL.path)
-                                Button("在库中查看") { model.selectVault(hit.vaultURL, itemID: item.id) }.disabled(model.busy)
+                                Button(L("在库中查看")) { model.selectVault(hit.vaultURL, itemID: item.id) }.disabled(model.busy)
                                 HStack {
-                                    if !item.username.isEmpty { Button("复制账号") { model.copy(item.username) }.accessibilityLabel("复制账号 \(item.title)") }
-                                    if !item.password.isEmpty { Button("复制密码") { model.copy(item.password) }.accessibilityLabel("复制密码 \(item.title)") }
+                                    if !item.username.isEmpty { Button(L("复制账号")) { model.copy(item.username) }.accessibilityLabel(L("复制账号 \(item.title)")) }
+                                    if !item.password.isEmpty { Button(L("复制密码")) { model.copy(item.password) }.accessibilityLabel(L("复制密码 \(item.title)")) }
                                     ForEach(item.sections.flatMap(\.fields).filter { $0.kind == .otp }) { field in
-                                        Button("复制验证码") {
+                                        Button(L("复制验证码")) {
                                             do { let now = Date(); let code = try TOTPConfiguration(field.value).code(at:now); model.copy(code.value,validFor:code.remaining(at:now)) }
                                             catch { model.showError(error) }
-                                        }.accessibilityLabel("复制验证码 \(item.title) \(field.label)")
-                                    }
+                                        }.accessibilityLabel(L("复制验证码 \(item.title) \(field.label)"))
+                                    }.id(interfaceLanguage)
                                 }
                             }.padding(12).frame(maxWidth:.infinity,alignment:.leading).background(.quaternary,in:RoundedRectangle(cornerRadius:8))
-                        }
-                        if matches.isEmpty { Text("没有匹配项目").foregroundStyle(.secondary) }
-                        if matches.count > 50 { Text("显示前 50 项，请缩小搜索范围。").font(.caption) }
+                        }.id(interfaceLanguage)
+                        if matches.isEmpty { Text(L("没有匹配项目")).foregroundStyle(.secondary) }
+                        if matches.count > 50 { Text(L("显示前 50 项，请缩小搜索范围。")).font(.caption) }
                     }
                 }
                 if let notice = model.notice { Text(notice).font(.caption).foregroundStyle(.secondary) }
-                Button("锁定全部密码库",action:model.lock)
-            } else { Text("密码库已锁定。请回到主窗口输入主密码。").foregroundStyle(.secondary); Spacer() }
+                Button(L("锁定全部密码库"),action:model.lock)
+            } else { Text(L("密码库已锁定。请回到主窗口输入主密码。")).foregroundStyle(.secondary); Spacer() }
         }.padding(20).frame(width:520,height:440)
         .onAppear { searching = true }
         .onChange(of: model.quickAccessVisible) { if $0 { searching = true } }
