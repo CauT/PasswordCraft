@@ -3,8 +3,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export CLANG_MODULE_CACHE_PATH="$PWD/.build/clang-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$PWD/.build/swift-cache"
-VERSION=0.4.0
-BUILD=4
+VERSION=0.4.1
+BUILD=5
+IDENTITY="${PASSWORDCRAFT_SIGNING_IDENTITY:--}"
+TEAM="${PASSWORDCRAFT_TEAM_ID:-}"
+if [ "$IDENTITY" != "-" ] && [ -z "$TEAM" ]; then
+  echo "Developer ID packaging requires PASSWORDCRAFT_TEAM_ID" >&2
+  exit 1
+fi
 OUTPUT="${1:-$PWD/outputs/packages/$VERSION-$(date -u +%Y%m%dT%H%M%SZ)}"
 if [ -e "$OUTPUT" ]; then
   echo "Refusing to overwrite an existing package directory: $OUTPUT" >&2
@@ -33,10 +39,18 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <key>NSHumanReadableCopyright</key><string>Independent local password manager. Not affiliated with 1Password.</string>
 </dict></plist>
 PLIST
-codesign --force --sign - --options runtime "$APP"
+if [ "$IDENTITY" = "-" ]; then
+  codesign --force --sign - --options runtime "$APP"
+else
+  codesign --force --sign "$IDENTITY" --timestamp --options runtime "$APP"
+fi
 codesign --verify --strict --deep "$APP"
 COPYFILE_DISABLE=1 /usr/bin/ditto -c -k --norsrc --noextattr --keepParent "$APP" "$OUTPUT/PasswordCraft-$VERSION-mac-arm64.zip"
-/usr/bin/python3 scripts/verify-package.py "$OUTPUT/PasswordCraft-$VERSION-mac-arm64.zip" "$APP" > "$OUTPUT/package-verification.json"
+if [ "$IDENTITY" = "-" ]; then
+  /usr/bin/python3 scripts/verify-package.py "$OUTPUT/PasswordCraft-$VERSION-mac-arm64.zip" "$APP" > "$OUTPUT/package-verification.json"
+else
+  /usr/bin/python3 scripts/verify-package.py "$OUTPUT/PasswordCraft-$VERSION-mac-arm64.zip" "$APP" --team-id "$TEAM" > "$OUTPUT/package-verification.json"
+fi
 /usr/bin/python3 - "$OUTPUT" <<'PY'
 import hashlib, json, pathlib, subprocess, sys
 root = pathlib.Path.cwd()
@@ -52,7 +66,7 @@ receipt = {
     'source_status': subprocess.check_output(['git', 'status', '--porcelain', '--', 'Sources', 'Package.swift', 'scripts'], text=True).splitlines(),
     'source_files_sha256': source,
     'package': json.loads((out / 'package-verification.json').read_text()),
-    'scope': 'Local ad-hoc package integrity. Not Developer ID, notarization, or downloaded Gatekeeper acceptance.'
+    'scope': 'Build and signature checks only. Notarization and final distribution require notarize-release.py.'
 }
 (out / 'build-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
 PY

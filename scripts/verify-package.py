@@ -10,12 +10,17 @@ import stat
 import subprocess
 import tempfile
 import zipfile
+from signing import verify_signature
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('archive', type=Path)
 parser.add_argument('app', type=Path)
 parser.add_argument('--extract-to', type=Path, help='A new directory to retain the verified extraction')
+parser.add_argument('--team-id', help='Require Developer ID from this Apple team, with runtime and timestamp')
+parser.add_argument('--require-notarization', action='store_true', help='Also require stapling and Gatekeeper acceptance')
 args = parser.parse_args()
+if args.require_notarization and not args.team_id:
+    parser.error('--require-notarization requires --team-id')
 archive, app = args.archive.resolve(), args.app.resolve()
 with zipfile.ZipFile(archive) as package:
     members = package.namelist()
@@ -53,7 +58,7 @@ def verify(destination):
     subprocess.run(['/usr/bin/ditto', '-x', '-k', str(archive), str(destination)], check=True)
     extracted = destination / app.name
     assert manifest(app) == manifest(extracted), 'Archive differs from build bytes/modes/symlinks'
-    subprocess.run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(extracted)], check=True)
+    signature = verify_signature(extracted, args.team_id, args.require_notarization)
     executable = extracted / 'Contents/MacOS/PasswordCraft'
     architectures = subprocess.check_output(['/usr/bin/lipo', '-archs', str(executable)], text=True).strip()
     assert architectures == 'arm64', 'Archive architecture does not match its arm64 label'
@@ -63,7 +68,7 @@ def verify(destination):
     for key in ['CFBundleName', 'CFBundleDisplayName', 'CFBundleExecutable']:
         assert info[key] == 'PasswordCraft', 'Unexpected product name: ' + key
     return {'bundle_id': info['CFBundleIdentifier'], 'version': info['CFBundleShortVersionString'],
-            'build': info['CFBundleVersion'], 'architecture': architectures}
+            'build': info['CFBundleVersion'], 'architecture': architectures, 'signature': signature}
 
 
 if args.extract_to:
@@ -77,5 +82,8 @@ else:
 print(json.dumps({'archive': str(archive), 'archive_sha256': hashlib.sha256(archive.read_bytes()).hexdigest(),
                   'executable_sha256': hashlib.sha256((app / 'Contents/MacOS/PasswordCraft').read_bytes()).hexdigest(),
                   'identity': identity, 'retained_extraction': str(args.extract_to.resolve()) if args.extract_to else None,
-                  'status': 'PASS', 'checks': ['safe archive entries', 'no AppleDouble', 'fresh extraction',
-                  'byte/mode/symlink equality', 'strict deep ad-hoc signature', 'arm64 binary']}, indent=2))
+                  'status': 'PASS', 'notarization_required': args.require_notarization,
+                  'checks': ['safe archive entries', 'no AppleDouble', 'fresh extraction',
+                  'byte/mode/symlink equality', 'strict deep signature', 'arm64 binary'] +
+                  (['Developer ID team, timestamp and hardened runtime'] if args.team_id else []) +
+                  (['stapled ticket', 'Gatekeeper acceptance'] if args.require_notarization else [])}, indent=2))
